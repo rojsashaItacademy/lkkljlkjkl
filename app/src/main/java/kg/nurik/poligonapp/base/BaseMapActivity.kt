@@ -106,7 +106,7 @@ abstract class BaseMapActivity : SupportMapActivity() {
         })
 
         mapBoxMap.addOnMapClickListener {
-            val iconSize = if (POINTS.size == 0) 2.0f else 1.0f
+            val iconSize = if (POINTS.size == 0) 1.5f else 1.0f
             symbol = symbolManager!!.create(
                 SymbolOptions()
                     .withLatLng(it)
