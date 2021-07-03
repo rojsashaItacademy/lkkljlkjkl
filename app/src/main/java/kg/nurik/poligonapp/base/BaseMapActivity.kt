@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.util.Log
+import android.widget.Toast
 import com.mapbox.core.constants.Constants.PRECISION_6
 import com.mapbox.geojson.*
 import com.mapbox.mapboxsdk.annotations.Marker
@@ -37,6 +38,7 @@ abstract class BaseMapActivity : SupportMapActivity() {
     private val polygon: Polygon? = null
     private val latLngList = arrayListOf<Point>()
     private val markerList = arrayListOf<Marker>()
+    private var mapBoxMap: MapboxMap? = null
 
     var polyHashList: HashMap<String, Pair<LinkedHashMap<String, LatLng>, Boolean>> = HashMap()
     private val POINTS: MutableList<List<Point>> = ArrayList()
@@ -46,16 +48,18 @@ abstract class BaseMapActivity : SupportMapActivity() {
         mapBoxMap: MapboxMap,
         style: Style
     ) { // после загрузки карты и стиля выз эта функция
-        setupListeners(mapBoxMap) // нажимая на карту вставляем маркер
+      // нажимая на карту вставляем маркер
 //        setOnMarkerClickListener(mapBoxMap)
 //        loadImages(style) // грузим картинку
 //        initSource(style) // грузим
 //        initLayer(style)
 //        drawLopygon(style)
 //        drawPolygon(mapBoxMap)
+        this.mapBoxMap = mapBoxMap
         mapView.let { symbolManager = SymbolManager(it!!, mapBoxMap, style) }
         symbolManager?.iconAllowOverlap = true
         symbolManager?.textAllowOverlap = true
+        setupListeners(mapBoxMap)
         if (PermissionUtils.requestLocationPermission(this)) //проверка на гео
             showUserLocation()
     }
@@ -69,7 +73,38 @@ abstract class BaseMapActivity : SupportMapActivity() {
         )
     }
 
-    private fun setupListeners(mapBoxMap: MapboxMap) { //клик на карту
+    private fun setupListeners(mapBoxMap: MapboxMap) {
+
+        symbolManager?.addClickListener {
+            Log.d("addClickListener", "onAnnotationDragStarted")
+            Log.d("addClickListener", "onAnnotationDragStarted")
+
+            false
+        }
+
+        symbolManager?.addDragListener(object : OnSymbolDragListener {
+            override fun onAnnotationDragStarted(annotation: Symbol?) {
+                Log.d("onAnnotationDragStarted", "onAnnotationDragStarted")
+            }
+
+            override fun onAnnotationDrag(annotation: Symbol?) {
+            }
+
+            @SuppressLint("LongLogTag")
+            override fun onAnnotationDragFinished(annotation: Symbol?) {
+                annotation?.id?.let { itemId ->
+                    val id = itemId.toInt()
+                    OUTER_POINTS[id] = annotation.geometry
+                    POINTS.clear()
+                    POINTS.add(OUTER_POINTS)
+                    drawPolygon(mapBoxMap)
+                }
+
+
+            }
+
+        })
+
         mapBoxMap.addOnMapClickListener {
             symbol = symbolManager!!.create(
                 SymbolOptions()
@@ -80,59 +115,15 @@ abstract class BaseMapActivity : SupportMapActivity() {
                     .withTextSize(23f)
                     .withDraggable(true)
             )
+
+
+
+
             OUTER_POINTS.add(Point.fromLngLat(it.longitude, it.latitude))
             POINTS.add(OUTER_POINTS)
 
-            symbolManager?.addDragListener(object : OnSymbolDragListener {
-                override fun onAnnotationDragStarted(annotation: Symbol?) {
-                    Log.d("onAnnotationDragStarted", "onAnnotationDragStarted")
-                }
-
-                override fun onAnnotationDrag(annotation: Symbol?) {
-                    Log.d("onAnnotationDrag", "onAnnotationDrag")
-                }
-
-                @SuppressLint("LongLogTag")
-                override fun onAnnotationDragFinished(annotation: Symbol?) {
-                    Log.d("onAnnotationDragFinished", "onAnnotationDragFinished")
-                }
-
-            })
-
             drawPolygon(mapBoxMap)
-
-//            mapBoxMap.setStyle(Style.OUTDOORS) { style ->
-//                style.addImageAsync(
-//                    MARKER_IMAGE,
-//                    BitmapUtils.getBitmapFromDrawable
-//                        (resources.getDrawable(R.drawable.ic_baseline_radio_button_checked_24))!!
-//                )
-//                style.addSource(
-//                    GeoJsonSource(
-//                        "line-source", FeatureCollection.fromFeatures(
-//                            arrayOf<Feature>(
-//                                Feature.fromGeometry(LineString.fromLngLats(OUTER_POINTS))
-//                            )
-//                        )
-//                    )
-//                )
-//                style.addLayer(
-//                    LineLayer("linelayer", "line-source").withProperties(
-//                        PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
-//                        PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
-//                        PropertyFactory.lineWidth(3f),
-//                        PropertyFactory.lineColor(Color.parseColor("#e55e5e"))
-//                    )
-//                )
-//                style.addSource(GeoJsonSource("source-id", Polygon.fromLngLats(POINTS)))
-//                style.addLayerBelow(
-//                    FillLayer("layer-id", "source-id").withProperties(
-//                        fillColor(Color.parseColor("#66018786"))
-//                    ), "settlement-label"
-//
-//                )
-//            }
-            return@addOnMapClickListener true
+            return@addOnMapClickListener false
         }
     }
 
@@ -150,15 +141,42 @@ abstract class BaseMapActivity : SupportMapActivity() {
 //    }
 
     private fun drawPolygon(mapBoxMap: MapboxMap) {
-        mapBoxMap.setStyle(Style.OUTDOORS) { style ->
+        mapBoxMap.getStyle { style ->
             style.addImageAsync(
                 MARKER_IMAGE,
                 BitmapUtils.getBitmapFromDrawable
                     (resources.getDrawable(R.drawable.ic_baseline_radio_button_checked_24))!!
             )
+
+            if (OUTER_POINTS.size < 2)
+                addLayer("asdasdasd")
+            else editLayer("asdasdasd")
+        }
+    }
+    private fun editLayer(nameSource: String) {
+        mapBoxMap?.getStyle { style ->
+//            style.addSource(
+//                GeoJsonSource(
+//                    "line-source$nameSource", FeatureCollection.fromFeatures(
+//                        arrayOf<Feature>(
+//                            Feature.fromGeometry(LineString.fromLngLats(OUTER_POINTS))
+//                        )
+//                    )
+//                )
+//            )
+
+            style.getSourceAs<GeoJsonSource>("line-source$nameSource")?.setGeoJson(LineString.fromLngLats(OUTER_POINTS))
+            style.getSourceAs<GeoJsonSource>("linelayer$nameSource")?.setGeoJson(LineString.fromLngLats(OUTER_POINTS))
+//TODO            style.getSourceAs<GeoJsonSource>("source-id$nameSource")?.setGeoJson(Polygon.fromLngLats(POINTS))
+        }
+    }
+
+
+    private fun addLayer(nameSource: String) {
+        mapBoxMap?.getStyle { style ->
             style.addSource(
                 GeoJsonSource(
-                    "line-source", FeatureCollection.fromFeatures(
+                    "line-source$nameSource", FeatureCollection.fromFeatures(
                         arrayOf<Feature>(
                             Feature.fromGeometry(LineString.fromLngLats(OUTER_POINTS))
                         )
@@ -166,28 +184,22 @@ abstract class BaseMapActivity : SupportMapActivity() {
                 )
             )
             style.addLayer(
-                LineLayer("linelayer", "line-source").withProperties(
+                LineLayer("linelayer$nameSource", "line-source$nameSource").withProperties(
                     PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
                     PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
                     PropertyFactory.lineWidth(3f),
                     PropertyFactory.lineColor(Color.parseColor("#e55e5e"))
                 )
             )
-            style.addSource(GeoJsonSource("source-id", Polygon.fromLngLats(POINTS)))
+            style.addSource(GeoJsonSource("source-id$nameSource", Polygon.fromLngLats(POINTS)))
             style.addLayerBelow(
-                FillLayer("layer-id", "source-id").withProperties(
+                FillLayer("layer-id$nameSource", "source-id$nameSource").withProperties(
                     fillColor(Color.parseColor("#66018786"))
                 ), "settlement-label"
 
             )
         }
     }
-//        mapBoxMap.setOnMarkerClickListener { marker ->
-//            marker.position = LatLng(42.842206, 74.622755)
-//            // Show a toast with the title of the selected marker
-//            Toast.makeText(this@BaseMapActivity, marker.title, Toast.LENGTH_LONG).show()
-//            true
-//        }
 
     private fun initLayer(style: Style) { // рисует линию
         style.addLayer(
