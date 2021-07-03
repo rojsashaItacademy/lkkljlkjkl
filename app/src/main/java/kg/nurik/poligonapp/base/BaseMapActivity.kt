@@ -106,11 +106,12 @@ abstract class BaseMapActivity : SupportMapActivity() {
         })
 
         mapBoxMap.addOnMapClickListener {
+            val iconSize = if (POINTS.size == 0) 2.0f else 1.0f
             symbol = symbolManager!!.create(
                 SymbolOptions()
                     .withLatLng(it)
                     .withIconImage(MARKER_IMAGE)
-                    .withIconSize(1.0f)
+                    .withIconSize(iconSize)
                     .withTextAnchor("Person First")
                     .withTextSize(23f)
                     .withDraggable(true)
