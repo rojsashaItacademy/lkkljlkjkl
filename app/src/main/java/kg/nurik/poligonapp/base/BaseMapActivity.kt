@@ -21,15 +21,19 @@ import com.mapbox.mapboxsdk.style.layers.PropertyFactory
 import com.mapbox.mapboxsdk.style.layers.PropertyFactory.fillColor
 import com.mapbox.mapboxsdk.style.sources.GeoJsonSource
 import com.mapbox.mapboxsdk.utils.BitmapUtils
+import kg.nurik.poligonapp.databinding.ActivityMainBinding
 import kg.nurik.poligonapp.utils.PermissionUtils
+import kg.nurik.poligonapp.utils.viewBinding
 
 abstract class BaseMapActivity : SupportMapActivity() {
 
+    private val binding by viewBinding(ActivityMainBinding::inflate)
     private var symbol: Symbol? = null
     private var symbolManager: SymbolManager? = null
     private var mapBoxMap: MapboxMap? = null
     private val POINTS: MutableList<List<Point>> = ArrayList()
     private val OUTER_POINTS: MutableList<Point> = ArrayList()
+    private var newPolygon: Boolean = false
 
     override fun onMapLoaded(
         mapBoxMap: MapboxMap,
@@ -87,15 +91,12 @@ abstract class BaseMapActivity : SupportMapActivity() {
             false
         })
 
-//        mapBoxMap.setOnPolygonClickListener {
-//            Toast.makeText(
-//                this, "ClicksOnPolygonClickListener",
-//                Toast.LENGTH_SHORT
-//            ).show()
+//        mapBoxMap.setOnPolygonClickListener{
+//            Toast.makeText(this, "Route type ",
+//                Toast.LENGTH_SHORT).show()
 //        }
     }
 
-    @SuppressLint("UseCompatLoadingForDrawables")
     private fun drawPolygon(mapBoxMap: MapboxMap) {
         mapBoxMap.getStyle { style ->
             style.addImageAsync(

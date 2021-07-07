@@ -20,7 +20,7 @@ class MainActivity : BaseMapActivity() {
     }
 
     private fun setupListeners() {
-        binding.undoFab.setOnClickListener {
+        binding.fab.setOnClickListener {
             map?.setStyle(Style.DARK)
         }
     }

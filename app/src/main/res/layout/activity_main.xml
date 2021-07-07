@@ -11,18 +11,19 @@
         android:id="@+id/mapView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        mapbox:mapbox_cameraZoom="14">
+        mapbox:mapbox_cameraZoom="14" />
 
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/undo_fab"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="bottom|right"
-            android:layout_margin="32dp"
-            android:elevation="20dp"
-            android:src="@drawable/ic_baseline_add_location_244"
-            app:backgroundTint="@android:color/white"
-            tools:ignore="MissingConstraints" />
-    </com.mapbox.mapboxsdk.maps.MapView>
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fab"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        android:clickable="true"
+        android:elevation="8dp"
+        android:focusable="true"
+        android:src="@drawable/ic_baseline_my_location_24"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
