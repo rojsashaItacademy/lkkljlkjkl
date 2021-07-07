@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.location.Location
+import android.widget.Toast
 import com.mapbox.geojson.*
 import com.mapbox.mapboxsdk.camera.CameraPosition
 import com.mapbox.mapboxsdk.camera.CameraUpdateFactory
@@ -21,19 +22,20 @@ import com.mapbox.mapboxsdk.style.layers.PropertyFactory
 import com.mapbox.mapboxsdk.style.layers.PropertyFactory.fillColor
 import com.mapbox.mapboxsdk.style.sources.GeoJsonSource
 import com.mapbox.mapboxsdk.utils.BitmapUtils
-import kg.nurik.poligonapp.databinding.ActivityMainBinding
 import kg.nurik.poligonapp.utils.PermissionUtils
-import kg.nurik.poligonapp.utils.viewBinding
+import java.util.*
+import kotlin.collections.ArrayList
+import kotlin.collections.HashMap
 
 abstract class BaseMapActivity : SupportMapActivity() {
 
-    private val binding by viewBinding(ActivityMainBinding::inflate)
     private var symbol: Symbol? = null
     private var symbolManager: SymbolManager? = null
     private var mapBoxMap: MapboxMap? = null
     private val POINTS: MutableList<List<Point>> = ArrayList()
     private val OUTER_POINTS: MutableList<Point> = ArrayList()
     private var newPolygon: Boolean = false
+    var polyHashList: HashMap<String, Pair<LinkedHashMap<String, LatLng>, Boolean>> = HashMap()
 
     override fun onMapLoaded(
         mapBoxMap: MapboxMap,
@@ -51,7 +53,7 @@ abstract class BaseMapActivity : SupportMapActivity() {
     private fun setupListeners(mapBoxMap: MapboxMap) {
 
         mapBoxMap.addOnMapClickListener {
-            val iconSize = if (POINTS.size == 0) 1.3f else 1.0f
+            val iconSize = if (POINTS.size == 0) 2.0f else 1.0f
             symbol = symbolManager!!.create(
                 SymbolOptions()
                     .withLatLng(it)
@@ -87,22 +89,24 @@ abstract class BaseMapActivity : SupportMapActivity() {
         symbolManager?.addClickListener(OnSymbolClickListener { symbol ->
             symbol.iconImage = "SET_NEW_MARKER"
             symbolManager?.update(symbol)
-            drawPolygon(mapBoxMap)
+//            drawPolygon(mapBoxMap)
             false
         })
 
-//        mapBoxMap.setOnPolygonClickListener{
-//            Toast.makeText(this, "Route type ",
-//                Toast.LENGTH_SHORT).show()
-//        }
+        mapBoxMap.setOnPolygonClickListener{
+            Toast.makeText(this, "Route type ",
+                Toast.LENGTH_SHORT).show()
+        }
     }
 
+    @SuppressLint("UseCompatLoadingForDrawables")
     private fun drawPolygon(mapBoxMap: MapboxMap) {
         mapBoxMap.getStyle { style ->
             style.addImageAsync(
                 "MARKER_IMAGE",
                 BitmapUtils.getBitmapFromDrawable
-                    (resources.getDrawable(R.drawable.abc_btn_radio_material))!!)
+                    (resources.getDrawable(R.drawable.abc_btn_radio_material))!!
+            )
             if (OUTER_POINTS.size < 2)
                 addLayer("sourceOne")
             else editLayer("sourceOne")
@@ -126,19 +130,25 @@ abstract class BaseMapActivity : SupportMapActivity() {
                 GeoJsonSource(
                     "line-source$nameSource", FeatureCollection.fromFeatures(
                         arrayOf<Feature>(
-                            Feature.fromGeometry(LineString.fromLngLats(OUTER_POINTS)))))
+                            Feature.fromGeometry(LineString.fromLngLats(OUTER_POINTS))
+                        )
+                    )
+                )
             )
             style.addLayer(
                 LineLayer("linelayer$nameSource", "line-source$nameSource").withProperties(
                     PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
                     PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
                     PropertyFactory.lineWidth(3f),
-                    PropertyFactory.lineColor(Color.parseColor("#e55e5e")))
+                    PropertyFactory.lineColor(Color.parseColor("#e55e5e"))
+                )
             )
             style.addSource(GeoJsonSource("source-id$nameSource", Polygon.fromLngLats(POINTS)))
             style.addLayerBelow(
                 FillLayer("layer-id$nameSource", "source-id$nameSource").withProperties(
-                    fillColor(Color.parseColor("#66018786"))), "settlement-label")
+                    fillColor(Color.parseColor("#66018786"))
+                ), "settlement-label"
+            )
         }
     }
 
