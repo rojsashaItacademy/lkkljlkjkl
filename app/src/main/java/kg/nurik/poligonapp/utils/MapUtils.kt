@@ -1,6 +1,5 @@
 package kg.nurik.poligonapp.utils
 
-import android.location.Location
 import android.util.Log
 import com.mapbox.api.directions.v5.DirectionsCriteria
 import com.mapbox.api.directions.v5.MapboxDirections
@@ -40,7 +39,4 @@ object MapUtils {
             }
         })
     }
-
-    fun locationToLatLng(location: Location?) =
-        LatLng(location?.latitude ?: 0.0, location?.longitude ?: 0.0)
 }

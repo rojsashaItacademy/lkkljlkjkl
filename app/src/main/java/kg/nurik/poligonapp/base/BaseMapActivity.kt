@@ -3,8 +3,8 @@ package kg.nurik.poligonapp.base
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.location.Location
 import com.mapbox.geojson.*
-import com.mapbox.mapboxsdk.annotations.Marker
 import com.mapbox.mapboxsdk.camera.CameraPosition
 import com.mapbox.mapboxsdk.camera.CameraUpdateFactory
 import com.mapbox.mapboxsdk.geometry.LatLng
@@ -13,10 +13,7 @@ import com.mapbox.mapboxsdk.location.modes.CameraMode
 import com.mapbox.mapboxsdk.location.modes.RenderMode
 import com.mapbox.mapboxsdk.maps.MapboxMap
 import com.mapbox.mapboxsdk.maps.Style
-import com.mapbox.mapboxsdk.plugins.annotation.OnSymbolDragListener
-import com.mapbox.mapboxsdk.plugins.annotation.Symbol
-import com.mapbox.mapboxsdk.plugins.annotation.SymbolManager
-import com.mapbox.mapboxsdk.plugins.annotation.SymbolOptions
+import com.mapbox.mapboxsdk.plugins.annotation.*
 import com.mapbox.mapboxsdk.style.layers.FillLayer
 import com.mapbox.mapboxsdk.style.layers.LineLayer
 import com.mapbox.mapboxsdk.style.layers.Property
@@ -24,8 +21,6 @@ import com.mapbox.mapboxsdk.style.layers.PropertyFactory
 import com.mapbox.mapboxsdk.style.layers.PropertyFactory.fillColor
 import com.mapbox.mapboxsdk.style.sources.GeoJsonSource
 import com.mapbox.mapboxsdk.utils.BitmapUtils
-import kg.nurik.poligonapp.R
-import kg.nurik.poligonapp.utils.MapUtils
 import kg.nurik.poligonapp.utils.PermissionUtils
 
 abstract class BaseMapActivity : SupportMapActivity() {
@@ -85,9 +80,19 @@ abstract class BaseMapActivity : SupportMapActivity() {
             }
         })
 
-        symbolManager?.addClickListener {
+        symbolManager?.addClickListener(OnSymbolClickListener { symbol ->
+            symbol.iconImage = "SET_NEW_MARKER"
+            symbolManager?.update(symbol)
+            drawPolygon(mapBoxMap)
             false
-        }
+        })
+
+//        mapBoxMap.setOnPolygonClickListener {
+//            Toast.makeText(
+//                this, "ClicksOnPolygonClickListener",
+//                Toast.LENGTH_SHORT
+//            ).show()
+//        }
     }
 
     @SuppressLint("UseCompatLoadingForDrawables")
@@ -96,8 +101,7 @@ abstract class BaseMapActivity : SupportMapActivity() {
             style.addImageAsync(
                 "MARKER_IMAGE",
                 BitmapUtils.getBitmapFromDrawable
-                    (resources.getDrawable(R.drawable.ic_baseline_radio_button_checked_24))!!
-            )
+                    (resources.getDrawable(R.drawable.abc_btn_radio_material))!!)
             if (OUTER_POINTS.size < 2)
                 addLayer("sourceOne")
             else editLayer("sourceOne")
@@ -133,17 +137,18 @@ abstract class BaseMapActivity : SupportMapActivity() {
             style.addSource(GeoJsonSource("source-id$nameSource", Polygon.fromLngLats(POINTS)))
             style.addLayerBelow(
                 FillLayer("layer-id$nameSource", "source-id$nameSource").withProperties(
-                    fillColor(Color.parseColor("#66018786"))), "settlement-label"
-            )
+                    fillColor(Color.parseColor("#66018786"))), "settlement-label")
         }
     }
 
     override fun onRequestPermissionsResult(
-        requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        requestCode: Int, permissions: Array<out String>, grantResults: IntArray
+    ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == PermissionUtils.LOCATION_REQUEST_CODE) {
             if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                showUserLocation() }
+                showUserLocation()
+            }
         }
     }
 
@@ -152,13 +157,14 @@ abstract class BaseMapActivity : SupportMapActivity() {
         map?.style?.let {
             val locationComponent = map?.locationComponent
             locationComponent?.activateLocationComponent(
-                LocationComponentActivationOptions.builder(applicationContext, it).build())
+                LocationComponentActivationOptions.builder(applicationContext, it).build()
+            )
 
             locationComponent?.isLocationComponentEnabled = true
             locationComponent?.cameraMode = CameraMode.TRACKING
             locationComponent?.renderMode = RenderMode.COMPASS
             val location = locationComponent?.lastKnownLocation
-            val latLng = MapUtils.locationToLatLng(location)
+            val latLng = locationToLatLng(location)
             animateCamera(latLng)
         }
     }
@@ -170,4 +176,7 @@ abstract class BaseMapActivity : SupportMapActivity() {
             .build()
         map?.animateCamera(CameraUpdateFactory.newCameraPosition(cm), 5000)
     }
+
+    private fun locationToLatLng(location: Location?) =
+        LatLng(location?.latitude ?: 0.0, location?.longitude ?: 0.0)
 }
