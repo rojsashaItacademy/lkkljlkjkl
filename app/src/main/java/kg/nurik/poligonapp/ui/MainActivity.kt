@@ -44,6 +44,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private var firstPointOfPolygon: Point? = null
     private var symbolManager: SymbolManager? = null
     private var symbol: Symbol? = null
+    private var isPolygonCompleted: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -116,6 +117,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         mapboxMap?.addOnMapClickListener {
 
+//            if (!isPolygonCompleted) {
             val symbol = symbolManager!!.create(
                 SymbolOptions()
                     .withLatLng(it)
@@ -163,17 +165,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             }
             listOfList = ArrayList()
             (listOfList as ArrayList<List<Point?>>).add(fillLayerPointList)
-
-            lineSource?.setGeoJson(
-                FeatureCollection.fromFeatures(
-                    arrayOf<Feature>(
-                        Feature.fromGeometry(
-                            LineString.fromLngLats(lineLayerPointList)
-                        )
-                    )
-                )
-            )
-
             drawPolygon()
             return@addOnMapClickListener false
         }
@@ -186,8 +177,18 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             override fun onAnnotationDragFinished(annotation: Symbol?) {
                 annotation?.id?.let { itemId ->
                     val id = itemId.toInt()
-                    fillLayerPointList[id] = annotation.geometry
-                    lineLayerPointList.addAll(fillLayerPointList)
+                    if (id == 0) {
+                        val lastPos = fillLayerPointList.size - 1
+                        fillLayerPointList[id] = annotation.geometry
+                        fillLayerPointList[lastPos] = annotation.geometry
+                        lineLayerPointList.clear()
+                        lineLayerPointList.addAll(fillLayerPointList)
+                        lineLayerPointList.addAll(listOf(firstPointOfPolygon))
+                    } else {
+                        fillLayerPointList[id] = annotation.geometry
+                        lineLayerPointList.clear()
+                        lineLayerPointList.addAll(fillLayerPointList)
+                    }
                     drawPolygon()
                 }
             }
@@ -201,6 +202,16 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         if (fillSource != null) {
             fillSource!!.setGeoJson(newFeatureCollection)
         }
+
+        lineSource?.setGeoJson(
+            FeatureCollection.fromFeatures(
+                arrayOf<Feature>(
+                    Feature.fromGeometry(
+                        LineString.fromLngLats(lineLayerPointList)
+                    )
+                )
+            )
+        )
     }
 
 
