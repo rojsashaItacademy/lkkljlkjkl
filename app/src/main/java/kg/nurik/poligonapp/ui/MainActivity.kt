@@ -2,6 +2,7 @@ package kg.nurik.poligonapp.ui
 
 import android.annotation.SuppressLint
 import android.graphics.Color
+import android.graphics.RectF
 import android.location.Location
 import android.os.Bundle
 import android.widget.Button
@@ -29,6 +30,10 @@ import com.mapbox.mapboxsdk.style.sources.GeoJsonSource
 import com.mapbox.mapboxsdk.utils.BitmapUtils
 import kg.nurik.poligonapp.R
 import kg.nurik.poligonapp.utils.PermissionUtils
+import kg.nurik.poligonapp.utils.createMarkerIndex
+import kg.nurik.poligonapp.utils.getMarkerIndex
+import timber.log.Timber
+
 
 class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
@@ -114,20 +119,32 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
         val saveBoundariesFab: Button = findViewById(R.id.save_button)
         saveBoundariesFab.setOnClickListener { saveEntireMap() }
-
         mapboxMap?.addOnMapClickListener {
-
+            val pointf = mapboxMap!!.projection.toScreenLocation(it)
+            val rectF = RectF(pointf.x - 10, pointf.y - 10, pointf.x + 10, pointf.y + 10)
+            val featureList = mapboxMap?.queryRenderedFeatures(rectF, FILL_LAYER_ID)
+            if ((featureList?.size ?: 0) > 0) {
+                for (feature in featureList!!) {
+                    Toast.makeText(
+                        this, "asdasdsadasdasdasd",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    return@addOnMapClickListener false
+                }
+            }
 //            if (!isPolygonCompleted) {
+            val currentSize = circleLayerFeatureList.size
             val symbol = symbolManager!!.create(
                 SymbolOptions()
                     .withLatLng(it)
+                    .withData(currentSize.createMarkerIndex())
                     .withIconImage("MARKER_IMAGE")
                     .withIconSize(1.0f)
                     .withDraggable(true)
             )
 
             // Make note of the first map click location so that it can be used to create aclosed polygon later on
-            if (circleLayerFeatureList.size == 0) {
+            if (currentSize == 0) {
                 firstPointOfPolygon = symbol.geometry
             }
 
@@ -175,22 +192,22 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
             @SuppressLint("LongLogTag")
             override fun onAnnotationDragFinished(annotation: Symbol?) {
-                annotation?.id?.let { itemId ->
-                    val id = itemId.toInt()
-                    if (id == 0) {
-                        val lastPos = fillLayerPointList.size - 1
-                        fillLayerPointList[id] = annotation.geometry
-                        fillLayerPointList[lastPos] = annotation.geometry
-                        lineLayerPointList.clear()
-                        lineLayerPointList.addAll(fillLayerPointList)
-                        lineLayerPointList.addAll(listOf(firstPointOfPolygon))
-                    } else {
-                        fillLayerPointList[id] = annotation.geometry
-                        lineLayerPointList.clear()
-                        lineLayerPointList.addAll(fillLayerPointList)
-                    }
-                    drawPolygon()
+                val data = annotation?.data ?: return
+                val id = data.getMarkerIndex()
+                if (id == 0) {
+                    val lastPos = fillLayerPointList.size - 1
+                    firstPointOfPolygon = annotation.geometry
+                    fillLayerPointList[id] = annotation.geometry
+                    fillLayerPointList[lastPos] = annotation.geometry
+                    lineLayerPointList.clear()
+                    lineLayerPointList.addAll(fillLayerPointList)
+                    lineLayerPointList.addAll(listOf(firstPointOfPolygon))
+                } else {
+                    fillLayerPointList[id] = annotation.geometry
+                    lineLayerPointList.clear()
+                    lineLayerPointList.addAll(fillLayerPointList)
                 }
+                drawPolygon()
             }
         })
     }
@@ -331,3 +348,5 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         private const val LINE_LAYER_ID = "line-layer-id"
     }
 }
+
+data class Test(var index: Int)
