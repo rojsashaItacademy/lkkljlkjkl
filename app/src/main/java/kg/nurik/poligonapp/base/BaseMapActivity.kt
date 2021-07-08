@@ -22,13 +22,16 @@ import com.mapbox.mapboxsdk.style.layers.PropertyFactory
 import com.mapbox.mapboxsdk.style.layers.PropertyFactory.fillColor
 import com.mapbox.mapboxsdk.style.sources.GeoJsonSource
 import com.mapbox.mapboxsdk.utils.BitmapUtils
+import kg.nurik.poligonapp.databinding.ActivityMainBinding
 import kg.nurik.poligonapp.utils.PermissionUtils
+import kg.nurik.poligonapp.utils.viewBinding
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
 
 abstract class BaseMapActivity : SupportMapActivity() {
 
+    private val binding by viewBinding(ActivityMainBinding::inflate)
     private var symbol: Symbol? = null
     private var symbolManager: SymbolManager? = null
     private var mapBoxMap: MapboxMap? = null
@@ -46,27 +49,25 @@ abstract class BaseMapActivity : SupportMapActivity() {
         symbolManager?.iconAllowOverlap = true
         symbolManager?.textAllowOverlap = true
         setupListeners(mapBoxMap)
+        initFloatingActionButtonClickListeners()
         if (PermissionUtils.requestLocationPermission(this)) //проверка на гео
             showUserLocation()
+    }
+
+    private fun initFloatingActionButtonClickListeners() {
+        binding.clearButton.setOnClickListener {
+            POINTS.remove(OUTER_POINTS)
+            symbolManager?.updateSource()
+        }
     }
 
     private fun setupListeners(mapBoxMap: MapboxMap) {
 
         mapBoxMap.addOnMapClickListener {
-            val iconSize = if (POINTS.size == 0) 2.0f else 1.0f
-            symbol = symbolManager!!.create(
-                SymbolOptions()
-                    .withLatLng(it)
-                    .withIconImage("MARKER_IMAGE")
-                    .withIconSize(iconSize)
-                    .withTextAnchor("Person First")
-                    .withTextSize(23f)
-                    .withDraggable(true)
-            )
-            OUTER_POINTS.add(Point.fromLngLat(it.longitude, it.latitude))
-            POINTS.add(OUTER_POINTS)
 
+            addMarker(it)
             drawPolygon(mapBoxMap)
+
             return@addOnMapClickListener false
         }
 
@@ -93,10 +94,48 @@ abstract class BaseMapActivity : SupportMapActivity() {
             false
         })
 
-        mapBoxMap.setOnPolygonClickListener{
-            Toast.makeText(this, "Route type ",
-                Toast.LENGTH_SHORT).show()
+//        mapBoxMap.addOnMapClickListener(MapboxMap.OnPolygonClickListener{
+//
+//                Toast.makeText(
+//                    this, "Route type ",
+//                    Toast.LENGTH_SHORT
+//                ).show()
+//
+//        })
+
+        mapBoxMap.setOnPolygonClickListener {
+            Toast.makeText(
+                this@BaseMapActivity, "asdasdasdasd",
+                Toast.LENGTH_LONG
+            ).show()
         }
+    }
+
+//    private fun clearAllMarker(){
+//        binding.fab.setOnClickListener(View.OnClickListener {
+//            clearEntireMap();
+//        })
+//        Button clearBoundariesFab = findViewById(R.id.clear_button);
+//        clearBoundariesFab.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View view) {
+//                clearEntireMap();
+//            }
+//    }
+
+    private fun addMarker(LatLng: LatLng) {
+        val iconSize = if (POINTS.size == 0) 2.0f else 1.0f
+        symbol = symbolManager!!.create(
+            SymbolOptions()
+                .withLatLng(LatLng)
+                .withIconImage("MARKER_IMAGE")
+                .withIconSize(iconSize)
+                .withTextAnchor("Person First")
+                .withTextSize(23f)
+                .withDraggable(true)
+        )
+        OUTER_POINTS.add(Point.fromLngLat(LatLng.longitude, LatLng.latitude))
+        POINTS.add(OUTER_POINTS)
     }
 
     @SuppressLint("UseCompatLoadingForDrawables")

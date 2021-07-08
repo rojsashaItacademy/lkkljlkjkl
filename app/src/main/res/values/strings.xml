@@ -2,4 +2,6 @@
     <string name="app_name">PoligonApp</string>
     <string name="access_token">pk.eyJ1IjoianVtYWJla292IiwiYSI6ImNrZm5uc3JkOTA5b3gycnBjeGNjYWRldWwifQ.yoHumQyfeeIEdAXl0dtyKw</string>
     <string name="tap_on_map_instruction">asdasdasdasdasdasd</string>
+    <string name="clear_all">clear</string>
+    <string name="trace_instruction">trace</string>
 </resources>
