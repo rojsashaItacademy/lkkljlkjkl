@@ -38,6 +38,7 @@ abstract class BaseMapActivity : SupportMapActivity() {
     private val POINTS: MutableList<List<Point>> = ArrayList()
     private val OUTER_POINTS: MutableList<Point> = ArrayList()
     private var newPolygon: Boolean = false
+    private var firstPointOfPolygon: Point? = null
     var polyHashList: HashMap<String, Pair<LinkedHashMap<String, LatLng>, Boolean>> = HashMap()
 
     override fun onMapLoaded(
@@ -134,8 +135,25 @@ abstract class BaseMapActivity : SupportMapActivity() {
                 .withTextSize(23f)
                 .withDraggable(true)
         )
+//        OUTER_POINTS.add(Point.fromLngLat(LatLng.longitude, LatLng.latitude))
+//        POINTS.add(OUTER_POINTS)
+
+        if (OUTER_POINTS.size == 0) {
+            firstPointOfPolygon = symbol?.geometry
+        }
+
         OUTER_POINTS.add(Point.fromLngLat(LatLng.longitude, LatLng.latitude))
         POINTS.add(OUTER_POINTS)
+
+        if (OUTER_POINTS.size < 3) {
+            POINTS.add(OUTER_POINTS)
+        } else if (OUTER_POINTS.size == 3) {
+            POINTS.add(OUTER_POINTS)
+            firstPointOfPolygon?.let { OUTER_POINTS.add(it) }
+        }else {
+
+        }
+
     }
 
     @SuppressLint("UseCompatLoadingForDrawables")

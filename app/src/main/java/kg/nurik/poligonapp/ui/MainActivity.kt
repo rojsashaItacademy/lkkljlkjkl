@@ -1,27 +1,34 @@
 package kg.nurik.poligonapp.ui
 
+import android.annotation.SuppressLint
 import android.graphics.Color
+import android.location.Location
 import android.os.Bundle
 import android.widget.Button
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.mapbox.geojson.*
 import com.mapbox.mapboxsdk.Mapbox
 import com.mapbox.mapboxsdk.camera.CameraPosition
 import com.mapbox.mapboxsdk.camera.CameraUpdateFactory
+import com.mapbox.mapboxsdk.geometry.LatLng
+import com.mapbox.mapboxsdk.location.LocationComponentActivationOptions
+import com.mapbox.mapboxsdk.location.modes.CameraMode
+import com.mapbox.mapboxsdk.location.modes.RenderMode
 import com.mapbox.mapboxsdk.maps.MapView
 import com.mapbox.mapboxsdk.maps.MapboxMap
 import com.mapbox.mapboxsdk.maps.OnMapReadyCallback
 import com.mapbox.mapboxsdk.maps.Style
+import com.mapbox.mapboxsdk.plugins.annotation.OnSymbolDragListener
+import com.mapbox.mapboxsdk.plugins.annotation.Symbol
 import com.mapbox.mapboxsdk.plugins.annotation.SymbolManager
 import com.mapbox.mapboxsdk.plugins.annotation.SymbolOptions
-import com.mapbox.mapboxsdk.style.layers.CircleLayer
-import com.mapbox.mapboxsdk.style.layers.FillLayer
-import com.mapbox.mapboxsdk.style.layers.LineLayer
+import com.mapbox.mapboxsdk.style.layers.*
 import com.mapbox.mapboxsdk.style.layers.PropertyFactory.*
 import com.mapbox.mapboxsdk.style.sources.GeoJsonSource
+import com.mapbox.mapboxsdk.utils.BitmapUtils
 import kg.nurik.poligonapp.R
-
+import kg.nurik.poligonapp.utils.PermissionUtils
 
 class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
@@ -36,20 +43,15 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private var lineSource: GeoJsonSource? = null
     private var firstPointOfPolygon: Point? = null
     private var symbolManager: SymbolManager? = null
-
+    private var symbol: Symbol? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Mapbox access token is configured here. This needs to be called either in your application
-// object or in the same activity which contains the mapview.
         Mapbox.getInstance(this, getString(R.string.access_token))
-
-// This contains the MapView in XML and needs to be called after the access token is configured.
         setContentView(R.layout.activity_main)
         mapView = findViewById(R.id.mapView)
         mapView?.onCreate(savedInstanceState)
         mapView?.getMapAsync(this)
-
     }
 
     override fun onMapReady(mapboxMap: MapboxMap) {
@@ -57,23 +59,17 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         mapboxMap.setStyle(
             Style.OUTDOORS
         ) { style ->
-            mapboxMap.animateCamera(
-                CameraUpdateFactory.newCameraPosition(
-                    CameraPosition.Builder()
-                        .zoom(16.0)
-                        .build()
-                ), 4000
-            )
+            if (PermissionUtils.requestLocationPermission(this)) //проверка на гео
+                showUserLocation()
 
             mapView.let { symbolManager = SymbolManager(it!!, mapboxMap, style) }
             symbolManager?.iconAllowOverlap = true
             symbolManager?.textAllowOverlap = true
-            // Add sources to the map
+
             circleSource = initCircleSource(style)
             fillSource = initFillSource(style)
             lineSource = initLineSource(style)
 
-            // Add layers to the map
             initCircleLayer(style)
             initLineLayer(style)
             initFillLayer(style)
@@ -81,39 +77,54 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
-    /**
-     * Set the button click listeners
-     */
+    @SuppressLint("MissingPermission", "Range")
+    private fun showUserLocation() {
+        mapboxMap?.style?.let {
+            val locationComponent = mapboxMap?.locationComponent
+            locationComponent?.activateLocationComponent(
+                LocationComponentActivationOptions.builder(applicationContext, it).build()
+            )
+
+            locationComponent?.isLocationComponentEnabled = true
+            locationComponent?.cameraMode = CameraMode.TRACKING
+            locationComponent?.renderMode = RenderMode.COMPASS
+            val location = locationComponent?.lastKnownLocation
+            val latLng = locationToLatLng(location)
+            animateCamera(latLng)
+        }
+    }
+
+    private fun animateCamera(latLng: LatLng) {
+        val cm = CameraPosition.Builder()
+            .target(latLng)
+            .zoom(15.5)
+            .build()
+        mapboxMap?.animateCamera(CameraUpdateFactory.newCameraPosition(cm), 5000)
+    }
+
+    private fun locationToLatLng(location: Location?) =
+        LatLng(location?.latitude ?: 0.0, location?.longitude ?: 0.0)
+
+
     private fun initFloatingActionButtonClickListeners() {
 
         val clearBoundariesFab: Button = findViewById(R.id.clear_button)
         clearBoundariesFab.setOnClickListener { clearEntireMap() }
 
-        val dropPinFab = findViewById<FloatingActionButton>(R.id.fab)
+        val saveBoundariesFab: Button = findViewById(R.id.save_button)
+        saveBoundariesFab.setOnClickListener { saveEntireMap() }
 
         mapboxMap?.addOnMapClickListener {
 
-            val iconSize = if (circleLayerFeatureList.size == 0) 2.0f else 1.0f
             val symbol = symbolManager!!.create(
                 SymbolOptions()
                     .withLatLng(it)
                     .withIconImage("MARKER_IMAGE")
-                    .withIconSize(iconSize)
-                    .withTextAnchor("Person First")
-                    .withTextSize(23f)
+                    .withIconSize(1.0f)
                     .withDraggable(true)
             )
-//            OUTER_POINTS.add(Point.fromLngLat(LatLng.longitude, LatLng.latitude))
-//            POINTS.add(OUTER_POINTS)
 
-
-//            dropPinFab.setOnClickListener { // Use the map click location to create a Point object
-//            val mapTargetPoint: Point = Point.fromLngLat(
-//                mapboxMap!!.cameraPosition.target.longitude,
-//                mapboxMap!!.cameraPosition.target.latitude
-//            )
-
-            // Make note of the first map click location so that it can be used to create a closed polygon later on
+            // Make note of the first map click location so that it can be used to create aclosed polygon later on
             if (circleLayerFeatureList.size == 0) {
                 firstPointOfPolygon = symbol.geometry
             }
@@ -121,7 +132,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             // Add the click point to the circle layer and update the display of the circle layer data
             circleLayerFeatureList.add(Feature.fromGeometry(symbol.geometry))
             if (circleSource != null) {
-                circleSource!!.setGeoJson(FeatureCollection.fromFeatures(circleLayerFeatureList))
+                circleSource!!.setGeoJson(
+                    FeatureCollection.fromFeatures
+                        (circleLayerFeatureList)
+                )
             }
 
             // Add the click point to the line layer and update the display of the line layer data
@@ -135,15 +149,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                 lineLayerPointList.add(symbol.geometry)
                 lineLayerPointList.add(firstPointOfPolygon)
             }
-            lineSource?.setGeoJson(
-                FeatureCollection.fromFeatures(
-                    arrayOf<Feature>(
-                        Feature.fromGeometry(
-                            LineString.fromLngLats(lineLayerPointList)
-                        )
-                    )
-                )
-            )
 
             // Add the click point to the fill layer and update the display of the fill layer data
             if (circleLayerFeatureList.size < 3) {
@@ -158,20 +163,55 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             }
             listOfList = ArrayList()
             (listOfList as ArrayList<List<Point?>>).add(fillLayerPointList)
-            val finalFeatureList: MutableList<Feature> = ArrayList()
-            finalFeatureList.add(Feature.fromGeometry(Polygon.fromLngLats(listOfList as ArrayList<List<Point?>>)))
-            val newFeatureCollection = FeatureCollection.fromFeatures(finalFeatureList)
-            if (fillSource != null) {
-                fillSource!!.setGeoJson(newFeatureCollection)
-            }
+
+            lineSource?.setGeoJson(
+                FeatureCollection.fromFeatures(
+                    arrayOf<Feature>(
+                        Feature.fromGeometry(
+                            LineString.fromLngLats(lineLayerPointList)
+                        )
+                    )
+                )
+            )
+
+            drawPolygon()
             return@addOnMapClickListener false
+        }
+
+        symbolManager?.addDragListener(object : OnSymbolDragListener {
+            override fun onAnnotationDragStarted(annotation: Symbol?) {}
+            override fun onAnnotationDrag(annotation: Symbol?) {}
+
+            @SuppressLint("LongLogTag")
+            override fun onAnnotationDragFinished(annotation: Symbol?) {
+                annotation?.id?.let { itemId ->
+                    val id = itemId.toInt()
+                    fillLayerPointList[id] = annotation.geometry
+                    lineLayerPointList.addAll(fillLayerPointList)
+                    drawPolygon()
+                }
+            }
+        })
+    }
+
+    private fun drawPolygon() {
+        val finalFeatureList: MutableList<Feature> = ArrayList()
+        finalFeatureList.add(Feature.fromGeometry(Polygon.fromLngLats(listOfList as ArrayList<List<Point?>>)))
+        val newFeatureCollection = FeatureCollection.fromFeatures(finalFeatureList)
+        if (fillSource != null) {
+            fillSource!!.setGeoJson(newFeatureCollection)
         }
     }
 
 
-    /**
-     * Remove the drawn area from the map by resetting the FeatureCollections used by the layers' sources
-     */
+    private fun saveEntireMap() {
+        Toast.makeText(
+            this,
+            "size point = " + fillLayerPointList.size.toString(),
+            Toast.LENGTH_LONG
+        ).show()
+    }
+
     private fun clearEntireMap() {
         fillLayerPointList = ArrayList()
         circleLayerFeatureList = ArrayList()
@@ -179,11 +219,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         circleSource?.setGeoJson(FeatureCollection.fromFeatures(arrayOf<Feature>()))
         lineSource?.setGeoJson(FeatureCollection.fromFeatures(arrayOf<Feature>()))
         fillSource?.setGeoJson(FeatureCollection.fromFeatures(arrayOf<Feature>()))
+        symbolManager?.deleteAll()
     }
 
-    /**
-     * Set up the CircleLayer source for showing map click points
-     */
     private fun initCircleSource(loadedMapStyle: Style): GeoJsonSource {
         val circleFeatureCollection: FeatureCollection =
             FeatureCollection.fromFeatures(arrayOf<Feature>())
@@ -192,24 +230,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         return circleGeoJsonSource
     }
 
-    /**
-     * Set up the CircleLayer for showing polygon click points
-     */
     private fun initCircleLayer(loadedMapStyle: Style) {
-        val circleLayer = CircleLayer(
-            CIRCLE_LAYER_ID,
-            CIRCLE_SOURCE_ID
+        loadedMapStyle.addImage(
+            "MARKER_IMAGE", BitmapUtils.getBitmapFromDrawable(
+                resources.getDrawable(R.drawable.ic_baseline_radio_button_checked_24)
+            )!!
         )
-        circleLayer.setProperties(
-            circleRadius(7f),
-            circleColor(Color.parseColor("#d004d3"))
-        )
-        loadedMapStyle.addLayer(circleLayer)
     }
 
-    /**
-     * Set up the FillLayer source for showing map click points
-     */
     private fun initFillSource(loadedMapStyle: Style): GeoJsonSource {
         val fillFeatureCollection: FeatureCollection =
             FeatureCollection.fromFeatures(arrayOf<Feature>())
@@ -218,24 +246,15 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         return fillGeoJsonSource
     }
 
-    /**
-     * Set up the FillLayer for showing the set boundaries' polygons
-     */
     private fun initFillLayer(loadedMapStyle: Style) {
-        val fillLayer = FillLayer(
-            FILL_LAYER_ID,
-            FILL_SOURCE_ID
-        )
+        val fillLayer = FillLayer(FILL_LAYER_ID, FILL_SOURCE_ID)
         fillLayer.setProperties(
             fillOpacity(.6f),
-            fillColor(Color.parseColor("#00e9ff"))
+            fillColor(Color.parseColor("#6FA6B8"))
         )
         loadedMapStyle.addLayerBelow(fillLayer, LINE_LAYER_ID)
     }
 
-    /**
-     * Set up the LineLayer source for showing map click points
-     */
     private fun initLineSource(loadedMapStyle: Style): GeoJsonSource {
         val lineFeatureCollection: FeatureCollection =
             FeatureCollection.fromFeatures(arrayOf<Feature>())
@@ -244,23 +263,20 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         return lineGeoJsonSource
     }
 
-    /**
-     * Set up the LineLayer for showing the set boundaries' polygons
-     */
     private fun initLineLayer(loadedMapStyle: Style) {
-        val lineLayer = LineLayer(
-            LINE_LAYER_ID,
-            LINE_SOURCE_ID
-        )
+        val lineLayer = LineLayer(LINE_LAYER_ID, LINE_SOURCE_ID)
         lineLayer.setProperties(
-            lineColor(Color.WHITE),
-            lineWidth(5f)
+            lineCap(Property.LINE_CAP_ROUND),
+            lineJoin(Property.LINE_JOIN_ROUND),
+            lineWidth(2f), //ширина линии
+            lineColor(Color.parseColor("#f7100a"))
         )
-        loadedMapStyle.addLayerBelow(lineLayer, CIRCLE_LAYER_ID)
+        loadedMapStyle.addLayerBelow(
+            lineLayer, CIRCLE_LAYER_ID
+        )
     }
 
-    // Add the mapView lifecycle to the activity's lifecycle methods
-    override fun onResume() {
+    public override fun onResume() {
         super.onResume()
         mapView?.onResume()
     }

@@ -4,4 +4,5 @@
     <string name="tap_on_map_instruction">asdasdasdasdasdasd</string>
     <string name="clear_all">clear</string>
     <string name="trace_instruction">trace</string>
+    <string name="save">save</string>
 </resources>
